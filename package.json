@@ -8,7 +8,7 @@
   "packageManager": "npm@9.5.1",
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev --parallel",
+    "dev": "turbo run dev --filter=@knock/native-mac --filter=@knock/web --parallel",
     "lint": "turbo run lint"
   },
   "devDependencies": {

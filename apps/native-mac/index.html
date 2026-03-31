@@ -9,12 +9,10 @@
     
     <div style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 8px;">
         <h3>Diagnostics</h3>
-        <button onclick="window.knockAPI.requestPermissions()">Manual Permission Prompt</button>
+        <button onclick="window.knockAPI.setKnockThreshold(50)">Test Threshold (50)</button>
         <button id="send-test-knock">Send Test Knock (50G)</button>
     </div>
 
-    <!-- Socket.IO client served by the local API -->
-    <script src="http://localhost:3000/socket.io/socket.io.js"></script>
     <script src="renderer.js"></script>
     <script>
         document.getElementById('send-test-knock').onclick = () => {

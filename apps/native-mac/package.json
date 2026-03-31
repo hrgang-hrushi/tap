@@ -4,7 +4,8 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "electron ."
+    "dev": "electron .",
+    "build-helper": "swiftc -o motion-helper/knock-detector motion-helper/main.swift -framework AVFoundation"
   },
   "devDependencies": {
     "electron": "^25.0.0"

@@ -1,55 +1,60 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Shield, Zap, CheckCircle2, ChevronRight } from 'lucide-react';
-import { io } from 'socket.io-client';
 import { Dashboard } from './Dashboard';
 
-const socket = io('http://localhost:3000');
+declare global {
+  interface Window {
+    knockAPI?: {
+      onKnock: (cb: (data: { intensity: number }) => void) => void;
+      setKnockThreshold: (value: number) => Promise<boolean>;
+      executeAction: (action: unknown) => void;
+      requestMicrophoneAccess: () => Promise<'granted' | 'denied' | 'restricted'>;
+      getMicrophoneStatus: () => Promise<'granted' | 'denied' | 'not-determined' | 'restricted'>;
+    };
+  }
+}
 
 export function Onboarding() {
   const [step, setStep] = useState(0);
   const [hasCompleted, setHasCompleted] = useState(false);
   const [permissionsGranted, setPermissionsGranted] = useState(false);
   const [calibrationScore, setCalibrationScore] = useState(0);
-  const [isConnected, setIsConnected] = useState(socket.connected);
 
   useEffect(() => {
-    socket.on('connect', () => setIsConnected(true));
-    socket.on('disconnect', () => setIsConnected(false));
+    // Initial check for microphone permissions
+    if (window.knockAPI) {
+      window.knockAPI.getMicrophoneStatus().then((status) => {
+        if (status === 'granted') {
+          setPermissionsGranted(true);
+        }
+      });
 
-    socket.on('permissions_status', (data) => {
-      console.log('Web: Received permissions_status', data);
-      if (data.isTrusted) {
-        setPermissionsGranted(true);
-      }
-    });
-    
-    socket.on('knock_event', (data) => {
-      console.log('Web: Received knock_event', data);
-      // Register the Z-axis intensity sent natively from the MacBook
-      const intensity = Math.round(data.intensity);
-      if (intensity > 0) {
-        setCalibrationScore(intensity);
-      }
-    });
-
-    return () => {
-      socket.off('connect');
-      socket.off('disconnect');
-      socket.off('permissions_status');
-      socket.off('knock_event');
+      // Listen for native knock events from Electron IPC
+      window.knockAPI.onKnock((data) => {
+        console.log('Web: Native knock detected', data);
+        const intensity = Math.round(data.intensity);
+        if (intensity > 0) {
+          setCalibrationScore(intensity);
+        }
+      });
     }
   }, []);
 
   // If already onboarded, render standard dashboard
   if (hasCompleted) return <Dashboard />;
 
-  const handleRequestPermissions = () => {
-    console.log('Web: Sending trigger_permissions_request');
-    socket.emit('trigger_permissions_request');
+  const handleRequestPermissions = async () => {
+    console.log('Web: Requesting native microphone access');
+    if (window.knockAPI) {
+      const status = await window.knockAPI.requestMicrophoneAccess();
+      console.log('Web: Permission status result:', status);
+      if (status === 'granted') {
+        setPermissionsGranted(true);
+      }
+    }
   };
 
   const simulateTap = () => {
-    // Fallback for non-mac machines missing the WebKit accelerometer node
     const intensity = Math.floor(Math.random() * 50) + 50;
     setCalibrationScore(intensity);
   };
@@ -58,12 +63,6 @@ export function Onboarding() {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center py-12 px-4 selection:bg-primary-500 selection:text-white">
       <div className="max-w-md w-full bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
         <div className="p-8">
-          <div className="flex justify-end mb-4">
-            <div className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-              <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-              <span>{isConnected ? 'API Connected' : 'API Disconnected'}</span>
-            </div>
-          </div>
           {step === 0 && (
             <div className="space-y-6 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="w-20 h-20 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -81,19 +80,23 @@ export function Onboarding() {
           )}
 
           {step === 1 && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="space-y-6 animate-in fade-in slide-in slide-in-from-right-4 duration-500">
               <div className="flex items-center space-x-4 mb-4">
                 <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center flex-shrink-0">
                   <Shield className="w-6 h-6 text-blue-600" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900 tracking-tight">System Permissions</h3>
-                  <p className="text-sm text-gray-500 mt-1">Enable Accessibility to allow Knock to run automated scripts.</p>
+                  <h3 className="text-xl font-bold text-gray-900 tracking-tight">Microphone Access</h3>
+                  <p className="text-sm text-gray-500 mt-1">Knock uses your Mac's microphone to detect physical desk taps.</p>
                 </div>
               </div>
 
               <div className="p-5 bg-gray-50/50 rounded-2xl border border-gray-100">
-                <p className="text-sm font-medium text-gray-700 mb-4">Click below to open System Preferences and authorize the Knock daemon.</p>
+                <p className="text-sm font-medium text-gray-700 mb-4">
+                  {window.knockAPI
+                    ? 'The native knock detector will request microphone access when started. Grant permission to continue.'
+                    : 'Click below to open System Preferences and authorize the Knock daemon.'}
+                </p>
                 <div className="flex justify-between items-center">
                   <button 
                     onClick={handleRequestPermissions} 
@@ -107,8 +110,7 @@ export function Onboarding() {
 
               <button 
                 onClick={() => setStep(2)}
-                disabled={!permissionsGranted}
-                className={`w-full font-semibold py-3 rounded-xl flex items-center justify-center space-x-2 transition-all ${permissionsGranted ? 'bg-primary-600 text-white hover:bg-primary-700 active:scale-95 shadow-sm shadow-primary-500/20' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                className="w-full font-semibold py-3 rounded-xl flex items-center justify-center space-x-2 transition-all bg-primary-600 text-white hover:bg-primary-700 active:scale-95 shadow-sm shadow-primary-500/20"
               >
                 <span>Continue</span>
                 <ChevronRight className="w-5 h-5" />
