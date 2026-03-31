@@ -23,8 +23,18 @@ io.on('connection', (socket) => {
   console.log('Device connected:', socket.id);
   
   socket.on('knock_event', (data) => {
-    console.log('Knock event received:', data);
-    // TODO: Handle action execution
+    console.log('Knock event received from client:', data);
+    io.emit('knock_event', data);
+  });
+
+  socket.on('trigger_permissions_request', () => {
+    console.log('Broadcasting permissions request to all clients');
+    io.emit('request-permissions-from-electron');
+  });
+
+  socket.on('permissions_status', (data) => {
+    console.log('Permission status received:', data);
+    io.emit('permissions_status', data);
   });
 
   socket.on('disconnect', () => {

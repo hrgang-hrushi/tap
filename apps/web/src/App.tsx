@@ -1,8 +1,8 @@
 import React from 'react';
-import { Dashboard } from './components/Dashboard';
+import { Onboarding } from './components/Onboarding';
 
 function App() {
-  return <Dashboard />;
+  return <Onboarding />;
 }
 
 export default App;

@@ -7,8 +7,21 @@
     <h1>Knock Background Client</h1>
     <p id="status">Connecting...</p>
     
+    <div style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 8px;">
+        <h3>Diagnostics</h3>
+        <button onclick="window.knockAPI.requestPermissions()">Manual Permission Prompt</button>
+        <button id="send-test-knock">Send Test Knock (50G)</button>
+    </div>
+
     <!-- Socket.IO client served by the local API -->
     <script src="http://localhost:3000/socket.io/socket.io.js"></script>
     <script src="renderer.js"></script>
+    <script>
+        document.getElementById('send-test-knock').onclick = () => {
+            // This is a bit of a hack since socket is in renderer.js scope, 
+            // but for diagnostics we can just emit via the window if we expose it
+            window.dispatchEvent(new CustomEvent('test-knock', { detail: 50 }));
+        };
+    </script>
 </body>
 </html>
